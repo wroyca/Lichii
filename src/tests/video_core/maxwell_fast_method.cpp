@@ -319,6 +319,38 @@ TEST_CASE("Maxwell3D constant buffer word runs match single CallMethod writes",
     }
 }
 
+TEST_CASE("Split instance-loop skips follow every effective draw-begin word",
+          "[video_core][gpu_split_dispatch]") {
+    using Access = VideoCommon::GpuSplitTestAccess;
+    Fixture f;
+    VideoCommon::GpuSplit split;
+    Access::Initialize(split, f.system);
+    const auto call = [&](u32 method, u32 value) {
+        f.fast.FrontCallMethod(f.system, split, method, value, true);
+    };
+    constexpr u32 subsequent = 1U << 26;
+    constexpr u32 unchanged = 2U << 26;
+    call(DrawBegin, subsequent);
+    const u64 in_loop = Access::End(split);
+    call(DrawEnd, 0);
+    REQUIRE(Access::End(split) == in_loop);
+
+    SECTION("A batch can leave the loop before an unchanged final word") {
+        constexpr std::array<u32, 2> words{0, unchanged};
+        f.fast.FrontCallMultiMethod(f.system, split, DrawBegin, words.data(), words.size(),
+                                   words.size());
+    }
+    SECTION("Replay uses the shadowed word rather than the incoming word") {
+        call(ShadowControl, static_cast<u32>(Maxwell3D::Regs::ShadowRamControl::Track));
+        call(DrawBegin, 0);
+        call(ShadowControl, static_cast<u32>(Maxwell3D::Regs::ShadowRamControl::Replay));
+        f.fast.FrontCallMultiMethod(f.system, split, DrawBegin, &subsequent, 1, 1);
+    }
+    const u64 outside_loop = Access::End(split);
+    call(DrawEnd, 0);
+    REQUIRE(Access::End(split) > outside_loop);
+}
+
 TEST_CASE("GpuSplit CB batching respects device remaps within GPU big pages",
           "[video_core][maxwell_fast_method][gpu_split_dispatch]") {
     using Access = VideoCommon::GpuSplitTestAccess;
