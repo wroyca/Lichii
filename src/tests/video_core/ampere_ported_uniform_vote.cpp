@@ -101,6 +101,8 @@ TEST_CASE("Ampere uniform votes reach UR28 to UR62 through the high uniform mirr
             shadowed.instructions.end());
     REQUIRE(std::ranges::find(shadowed.instructions, Vote(212, 7, 7, 1)) !=
             shadowed.instructions.end());
+    REQUIRE(std::ranges::find(shadowed.instructions, 0x0103f8000007f0d2ULL) !=
+            shadowed.instructions.end());
 }
 
 TEST_CASE("Ampere uniform votes keep the source predicate and its negation",
