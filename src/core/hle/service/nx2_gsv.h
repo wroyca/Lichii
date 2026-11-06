@@ -2580,6 +2580,8 @@ inline bool Nx2FirstVideoCommand(std::string_view service, u32 command) {
 // FFmpeg decodes on a thread of the session's own (a 1440p VP9 frame takes milliseconds, and the
 // service thread also serves presents and syncpoint waits) into the layout gsv 961 describes.
 class INx2VideoSession final : public ServiceFramework<INx2VideoSession> {
+    friend struct Nx2VideoSessionTestAccess;
+
 public:
     explicit INx2VideoSession(Core::System& system_, std::shared_ptr<Nx2NativeObjects> objects_,
                               const char* name)
@@ -2861,15 +2863,9 @@ private:
     void ReleaseBuffer(HLERequestContext& ctx) {
         const auto* w = ctx.CommandBuffer();
         Log(ctx, "release output");
-        if (Common::Nx2MovieClock::Enabled() &&
-            m_last_take != std::chrono::steady_clock::time_point{}) {
-            auto& clock = Common::Nx2MovieClock::Get();
-            Common::Nx2MovieClock::Add(clock.video_releases, 1);
-            Common::Nx2MovieClock::Add(
-                clock.take_to_release_us,
-                static_cast<u64>(std::chrono::duration_cast<std::chrono::microseconds>(
-                                     std::chrono::steady_clock::now() - m_last_take)
-                                     .count()));
+        if (Common::Nx2MovieClock::Enabled()) {
+            std::scoped_lock lk{m_mutex};
+            RecordOutputRelease(w[2], std::chrono::steady_clock::now());
         }
         const auto handle = HandOut(w[2], Fence{~w[4], w[6]});
         TipcReplyWords(ctx, {handle[0], handle[1], handle[2], handle[3]});
@@ -2882,6 +2878,7 @@ private:
             std::scoped_lock lk{m_mutex};
             std::erase(m_free, image);
             m_release_fences.erase(image);
+            m_take_times.erase(image);
         }
         TipcReplyWords(ctx, {});
     }
@@ -2996,10 +2993,7 @@ private:
                 output = m_outputs.front();
                 m_outputs.pop_front();
                 const auto now = std::chrono::steady_clock::now();
-                if (m_clock_running && now - m_clock_last_take > MovieClockPause) {
-                    m_clock_start += now - m_clock_last_take;
-                }
-                m_clock_last_take = now;
+                NoteOutputTaken(output->image, now);
             }
         }
         if (!output) {
@@ -3016,7 +3010,6 @@ private:
             auto& clock = Common::Nx2MovieClock::Get();
             Common::Nx2MovieClock::Add(clock.video_takes, 1);
             clock.video_last_pts_us.store(output->pts, std::memory_order_relaxed);
-            m_last_take = std::chrono::steady_clock::now();
         }
         const u64 pts_ns = output->pts * 1000;
         if (Nx2VideoTraceEnabled()) {
@@ -3146,25 +3139,53 @@ private:
             if (m_flush) {
                 continue;
             }
-            for (size_t i = 0; i < pictures.size(); ++i) {
-                const u64 pts = pictures[i].pts;
-                const bool last = input.end && i + 1 == pictures.size();
-                if (!last && IsLate(pts)) {
-                    ++m_late_dropped;
-                    continue;
-                }
-                m_decoded.push_back({std::move(pictures[i]), pts, false});
+            QueueDecodedPictures(pictures, input.pts, input.end);
+        }
+    }
+
+    void QueueDecodedPictures(std::span<Tegra::Host1x::Nx2Picture> pictures, u64 input_pts,
+                              bool end) {
+        for (size_t i = 0; i < pictures.size(); ++i) {
+            const u64 pts = pictures[i].pts;
+            // Keep the latest picture even when late: there may be no more input to complete
+            // an image the client already holds a fence for.
+            if (i + 1 < pictures.size() && IsLate(pts)) {
+                ++m_late_dropped;
+                continue;
             }
-            if (input.end) {
-                // The client stops at the frame marked end of stream; give it one even when the
-                // last input held no picture.
-                if (m_decoded.empty()) {
-                    m_decoded.push_back({std::nullopt, input.pts, true});
-                } else {
-                    m_decoded.back().end = true;
-                }
+            m_decoded.push_back({std::move(pictures[i]), pts, false});
+        }
+        if (end) {
+            if (m_decoded.empty()) {
+                m_decoded.push_back({std::nullopt, input_pts, true});
+            } else {
+                m_decoded.back().end = true;
             }
         }
+    }
+
+    void NoteOutputTaken(u32 image, std::chrono::steady_clock::time_point now) {
+        if (m_clock_running && now - m_clock_last_take > MovieClockPause) {
+            m_clock_start += now - m_clock_last_take;
+        }
+        m_clock_last_take = now;
+        if (Common::Nx2MovieClock::Enabled()) {
+            m_take_times[image] = now;
+        }
+    }
+
+    void RecordOutputRelease(u32 image, std::chrono::steady_clock::time_point now) {
+        const auto take = m_take_times.find(image);
+        if (take == m_take_times.end()) {
+            return;
+        }
+        auto& clock = Common::Nx2MovieClock::Get();
+        Common::Nx2MovieClock::Add(clock.video_releases, 1);
+        Common::Nx2MovieClock::Add(
+            clock.take_to_release_us,
+            static_cast<u64>(std::chrono::duration_cast<std::chrono::microseconds>(now - take->second)
+                                 .count()));
+        m_take_times.erase(take);
     }
 
     u32 DrainFreeAsEndOfStream() {
@@ -3352,7 +3373,7 @@ private:
     bool m_end_queued{};
     bool m_flush{};
     bool m_quit{};
-    std::chrono::steady_clock::time_point m_last_take{};
+    std::map<u32, std::chrono::steady_clock::time_point> m_take_times;
     u64 m_frame_us{1'000'000 / 60};
     bool m_clock_running{};
     std::chrono::steady_clock::time_point m_clock_start{};
