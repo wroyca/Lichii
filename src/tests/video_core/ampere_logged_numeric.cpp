@@ -458,3 +458,44 @@ TEST_CASE("Ocarina mesh attribute stores read shadowed high registers",
     CHECK(data < 216);
     CHECK(std::find(begin, pseudo, Shader::Ampere::NativeRegisterCopy(0, data, 1, 240)) != pseudo);
 }
+
+TEST_CASE("Native RED and SURED data operands read guest register shadows",
+          "[video_core][ampere][logged_numeric]") {
+    const Instruction uniform_marker{{0x0000fc02, 0, 0, 0}};
+    for (const Instruction reduction : {
+             Instruction{{0x0000798e, 0x000000f0, 0x0010e100, 0}},
+             Instruction{{0x0500759f, 0x20c002f0, 0x0010e000, 0x000fe200}}}) {
+        const auto lowered = LowerToMaxwell(std::array{uniform_marker, reduction, Exit});
+        INFO(lowered.error);
+        REQUIRE(lowered);
+        const auto begin = lowered.instructions.begin() + lowered.source_instruction_offsets[1];
+        const auto end = lowered.instructions.begin() + lowered.source_instruction_offsets[2];
+        const auto operation = std::find_if(begin, end, [](u64 word) {
+            return (word >> 52) == 0xebf || (word >> 52) == 0xeb4;
+        });
+        REQUIRE(operation != end);
+        const u32 data = static_cast<u32>(*operation & 0xff);
+        REQUIRE(data < 216);
+        REQUIRE(std::find(begin, operation,
+                          Shader::Ampere::NativeRegisterCopy(0, data, 1, 240)) != operation);
+    }
+}
+
+TEST_CASE("Native register SHF preserves high guest operands during lowering",
+          "[video_core][ampere][logged_numeric]") {
+    const Instruction uniform_marker{{0x0000fc02, 0, 0, 0}};
+    const Instruction shift{{0xf0f47219, 0x000000f1, 0x000012f2, 0}};
+    const auto lowered = LowerToMaxwell(std::array{uniform_marker, shift, Exit});
+    INFO(lowered.error);
+    REQUIRE(lowered);
+    const auto pressure = Shader::Ampere::PrepareRegisterPressure(shift, 216);
+    REQUIRE(pressure.valid);
+    for (const u32 bit : {16U, 24U, 32U, 64U}) {
+        const u32 original = shift.Bits(bit, 8);
+        const u32 mapped = pressure.instruction.Bits(bit, 8);
+        REQUIRE(mapped < 216);
+        REQUIRE(std::ranges::find(pressure.prefix,
+                                  Shader::Ampere::NativeRegisterCopy(0, mapped, 1, original)) !=
+                pressure.prefix.end());
+    }
+}

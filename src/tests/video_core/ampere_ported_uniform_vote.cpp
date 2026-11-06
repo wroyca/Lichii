@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 
@@ -89,12 +90,17 @@ TEST_CASE("Ampere uniform votes reach UR28 to UR62 through the high uniform mirr
     REQUIRE(lowered.instructions.size() == 3);
     REQUIRE(lowered.instructions[0] == Vote(214, 7, 7, 1));
     REQUIRE(lowered.instructions[1] == Vote(180, 7, 7, 1));
-    // The mirrors are reserved: a native register the high bank shadows is rejected.
+    // A high guest register is shadowed while the uniform mirrors use an aligned quartet.
     const auto shadowed = LowerToMaxwell(std::array{
         Instruction{{0x00d67802, 0x3f800000, 0x00000f00, 0x000fe400}},
         Instruction{{0x001c7886, 0, 0x038e0100, 0x000fe400}}, Exit});
-    REQUIRE_FALSE(shadowed);
-    REQUIRE(shadowed.error == "native program uses lowering scratch registers");
+    INFO(shadowed.error);
+    REQUIRE(shadowed);
+    REQUIRE(std::ranges::find(shadowed.instructions,
+                              Shader::Ampere::NativeRegisterCopy(1, 214, 0, 210)) !=
+            shadowed.instructions.end());
+    REQUIRE(std::ranges::find(shadowed.instructions, Vote(212, 7, 7, 1)) !=
+            shadowed.instructions.end());
 }
 
 TEST_CASE("Ampere uniform votes keep the source predicate and its negation",
