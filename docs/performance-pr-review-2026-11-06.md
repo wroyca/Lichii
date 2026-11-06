@@ -23,17 +23,19 @@ Inventoried all 74 open PRs. Inspected diffs for 22 performance candidates (#174
 
 ## Remaining PR triage
 
+The follow-up review and updated dispositions are in [deferred-pr-review-2026-11-06.md](deferred-pr-review-2026-11-06.md).
+
 “Already present” means the relevant behavior exists in the integration base, even when the original PR head is not an ancestor. PRs #176 and #206 were merged for provenance; their remaining code changes were respectively a comment and none.
 
 | PR | Disposition | Reason |
 | --- | --- | --- |
-| [#311](https://github.com/zortos293/Lichii/pull/311) | Deferred | Partial correctness follow-up: review still identifies surface-clip coverage missing from IsFullClear for existing cached targets. Do not call this a complete clear-coverage fix. |
+| [#311](https://github.com/zortos293/Lichii/pull/311) | Included in follow-up | Updated head fixes both new-image and cached-image clear coverage. |
 | [#310](https://github.com/zortos293/Lichii/pull/310) | Outside selected performance scope | dynarmic: wait for the code space commit instead of emitting past it |
 | [#309](https://github.com/zortos293/Lichii/pull/309) | Outside selected performance scope | vk_query_cache: log when the bank-bound reset drops a samples count |
 | [#303](https://github.com/zortos293/Lichii/pull/303) | Outside selected performance scope | qt: add opt-in desktop compatibility reports |
 | [#301](https://github.com/zortos293/Lichii/pull/301) | Outside selected performance scope | vulkan: add EDEN_NX2_PIPELINE_BUILD_TRACE to name shaders a driver crashes on |
 | [#300](https://github.com/zortos293/Lichii/pull/300) | Deferred | Skips compute dispatches while deferred pipelines build, with reported skipped video. Needs explicit acceptance and driver/game testing. |
-| [#299](https://github.com/zortos293/Lichii/pull/299) | Deferred | Game timing/mod behavior, not a general emulator throughput optimization. |
+| [#299](https://github.com/zortos293/Lichii/pull/299) | Included in follow-up | User-selected Dynamic FPS timing extension, with execution tests for the embedded routine. |
 | [#298](https://github.com/zortos293/Lichii/pull/298) | Deferred draft | Not ready for production integration; may contain experimental behavior. |
 | [#292](https://github.com/zortos293/Lichii/pull/292) | Deferred | Changes compute pointer binding capacity; needs game-specific correctness validation. |
 | [#287](https://github.com/zortos293/Lichii/pull/287) | Outside selected performance scope | frontend: load Linux AppImage switch files and package defaults |
@@ -45,11 +47,11 @@ Inventoried all 74 open PRs. Inspected diffs for 22 performance candidates (#174
 | [#259](https://github.com/zortos293/Lichii/pull/259) | Deferred | Experimental preflush switch has reported flicker; repository policy excludes experimental switches from nx2. |
 | [#255](https://github.com/zortos293/Lichii/pull/255) | Outside selected performance scope | Implement Switch 2 microphone capture and Controls configuration |
 | [#253](https://github.com/zortos293/Lichii/pull/253) | Deferred | DLSS replacement is a separate feature with SDK/runtime and image-quality validation requirements. |
-| [#251](https://github.com/zortos293/Lichii/pull/251) | Deferred | Video/audio timing behavior; needs dedicated playback validation. |
+| [#251](https://github.com/zortos293/Lichii/pull/251) | Included with repairs in follow-up | Movie-clock catch-up; retain output progress and use per-image diagnostic timestamps. |
 | [#246](https://github.com/zortos293/Lichii/pull/246) | Included test support | Match unsigned result types in assertions; no runtime behavior change. |
 | [#245](https://github.com/zortos293/Lichii/pull/245) | Outside selected performance scope | video_core: read bindless handle words from the host-aligned storage base |
 | [#243](https://github.com/zortos293/Lichii/pull/243) | Deferred | Substantial synchronization rewrite of macro DMA/report reads; needs dedicated dependency/readback integration testing before merge. |
-| [#241](https://github.com/zortos293/Lichii/pull/241) | Outside selected performance scope | shader: retry native lowering with an aligned high uniform base before rejecting |
+| [#241](https://github.com/zortos293/Lichii/pull/241) | Included in follow-up | Native uniform-shadow alignment retry and missing SHF/LOP3 operand forms. |
 | [#235](https://github.com/zortos293/Lichii/pull/235) | Deferred | Adds an experimental split-safe-read switch; excluded by the repository toggle policy. |
 | [#232](https://github.com/zortos293/Lichii/pull/232) | Deferred | Windows-specific scheduling change; no Windows/hybrid-CPU validation in this review. |
 | [#231](https://github.com/zortos293/Lichii/pull/231) | Deferred | Depends on draft #179 and imports its large experimental history. |
@@ -87,8 +89,8 @@ Inventoried all 74 open PRs. Inspected diffs for 22 performance candidates (#174
 | [#161](https://github.com/zortos293/Lichii/pull/161) | Deferred | Large mixed timing/JIT/synchronization patch overlaps promoted #184/#194 changes; original speedup claims were corrected by the author. |
 | [#160](https://github.com/zortos293/Lichii/pull/160) | Outside selected performance scope | loader: fail the NSO load when ZBIC decompression fails (#95) |
 | [#159](https://github.com/zortos293/Lichii/pull/159) | Outside selected performance scope | file_sys: fall back to the loaded RomFS for program index 0 |
-| [#149](https://github.com/zortos293/Lichii/pull/149) | Deferred | Mixed overlapping split/FSR3/shader fixes; assess remaining independent changes separately. |
-| [#147](https://github.com/zortos293/Lichii/pull/147) | Deferred | Base has newer CPU readback/trap changes; needs a narrow rebased comparison, not a whole old-branch merge. |
+| [#149](https://github.com/zortos293/Lichii/pull/149) | Included in follow-up | Remaining RED/SURED data-register shadowing, with regression coverage. |
+| [#147](https://github.com/zortos293/Lichii/pull/147) | Superseded | Current DownloadRangesMemory has newer direct-mapped barriers, dirty-range and trap tracking; do not replace it with the older implementation. |
 | [#143](https://github.com/zortos293/Lichii/pull/143) | Deferred | Driver-specific tensor fallback changes rendered output; requires Intel gameplay and image comparisons. |
 | [#114](https://github.com/zortos293/Lichii/pull/114) | Deferred draft | Not ready for production integration; may contain experimental behavior. |
 | [#28](https://github.com/zortos293/Lichii/pull/28) | Outside selected performance scope | Windows: select the AV1 FFmpeg package, and document MSVC build pitfalls |

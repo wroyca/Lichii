@@ -499,3 +499,27 @@ TEST_CASE("Native register SHF preserves high guest operands during lowering",
                 pressure.prefix.end());
     }
 }
+
+TEST_CASE("Native LOP3 shadows register operands without rewriting constant or uniform B",
+          "[video_core][ampere][logged_numeric]") {
+    const Instruction uniform_marker{{0x0000fc02, 0, 0, 0}};
+    for (const u32 opcode : {0xa12U, 0xc12U}) {
+        // Rd, A and C overlap the uniform mirrors; B is a cbuf offset or UR28.
+        const Instruction logic{{0xf0f47000U | opcode, opcode == 0xa12 ? 0x5a00U : 28U,
+                                 0x078ee8f2, 0}};
+        const auto lowered = LowerToMaxwell(std::array{uniform_marker, logic, Exit});
+        INFO(lowered.error);
+        REQUIRE(lowered);
+        const auto pressure = Shader::Ampere::PrepareRegisterPressure(logic, 216);
+        REQUIRE(pressure.valid);
+        REQUIRE(pressure.instruction.words[1] == logic.words[1]);
+        for (const u32 bit : {16U, 24U, 64U}) {
+            const u32 original = logic.Bits(bit, 8);
+            const u32 mapped = pressure.instruction.Bits(bit, 8);
+            REQUIRE(mapped < 216);
+            REQUIRE(std::ranges::find(pressure.prefix,
+                                      Shader::Ampere::NativeRegisterCopy(0, mapped, 1, original)) !=
+                    pressure.prefix.end());
+        }
+    }
+}
