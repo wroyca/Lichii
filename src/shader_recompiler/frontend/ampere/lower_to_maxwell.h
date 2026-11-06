@@ -1479,6 +1479,26 @@ inline LoweredProgram LowerToMaxwellWith(std::span<const Instruction> code, u32 
                 (u64{1} << 48) | (u64{operation} << 52));
             break;
         }
+        case 0x3a9: { // ATOMG.E.CAS.STRONG.GPU, 32-bit compare-and-swap.
+            const u32 address = insn.Bits(24, 8), compare = insn.Bits(32, 8);
+            const u32 value = insn.Bits(64, 8), output = insn.Bits(81, 3);
+            const s32 offset = static_cast<s32>(insn.Bits(40, 24) << 8) >> 8;
+            if ((insn.words[2] & ~0x000e02ffU) != 0x0010e100U ||
+                (address & 1) || address >= 246 || offset < -0x80000 || offset > 0x7ffff)
+                return fail(index, "native global compare-and-swap mode");
+            // Maxwell takes adjacent compare/value registers. Preserve both before Rd can alias
+            // an input, and write the success predicate last in case it is also the guard.
+            emit(0x5c98000000000000ULL | predicate | 246 | (u64{compare} << 20) | (u64{15} << 39));
+            emit(0x5c98000000000000ULL | predicate | 247 | (u64{value} << 20) | (u64{15} << 39));
+            emit(0xeef0000000000000ULL | predicate | 248 | (u64{address} << 8) |
+                 (u64{246} << 20) | (u64{static_cast<u32>(offset) & 0xfffff} << 28) | (u64{1} << 48));
+            if (dest != 255)
+                emit(0x5c98000000000000ULL | predicate | dest | (u64{248} << 20) | (u64{15} << 39));
+            if (output != 7)
+                emit(0x5b60000000000000ULL | predicate | 7 | (u64{output} << 3) | (u64{248} << 8) |
+                     (u64{246} << 20) | (u64{7} << 39) | (u64{2} << 49));
+            break;
+        }
         case 0x9a8: { // ATOMG.E.ADD.STRONG.GPU U32 through a uniform pointer plus an offset.
             const u32 address = uniform_register(insn.Bits(64, 6));
             const s32 offset = static_cast<s32>(insn.Bits(40, 24) << 8) >> 8;

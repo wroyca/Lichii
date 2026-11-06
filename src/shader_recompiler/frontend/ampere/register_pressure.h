@@ -211,6 +211,12 @@ inline RegisterPressure PrepareRegisterPressure(const Instruction& input, u32 re
         operand(32, input.Bits(75, 1) ? 2 : 1);
         operand(64, 2);
         break;
+    case 0x3a9:
+        operand(16);
+        operand(24, 2);
+        operand(32);
+        operand(64);
+        break;
     case 0x388:
     case 0x984:
     case 0x988: {
