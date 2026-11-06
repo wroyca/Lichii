@@ -32,19 +32,41 @@ void Set(Instruction& instruction, u32 bit, u32 width, u32 value) {
 
 class Environment final : public Shader::Environment {
 public:
-    u64 ReadInstruction(u32) override { FAIL("Unexpected instruction fetch"); return 0; }
-    u32 ReadCbufValue(u32, u32) override { FAIL("Unexpected constant fetch"); return 0; }
-    Shader::TextureType ReadTextureType(u32) override { return Shader::TextureType::Color2D; }
+    u64 ReadInstruction(u32) override {
+        FAIL("Unexpected instruction fetch");
+        return 0;
+    }
+    u32 ReadCbufValue(u32, u32) override {
+        FAIL("Unexpected constant fetch");
+        return 0;
+    }
+    Shader::TextureType ReadTextureType(u32) override {
+        return Shader::TextureType::Color2D;
+    }
     Shader::TexturePixelFormat ReadTexturePixelFormat(u32) override {
         return Shader::TexturePixelFormat::A8B8G8R8_UNORM;
     }
-    bool IsTexturePixelFormatInteger(u32) override { return false; }
-    u32 ReadViewportTransformState() override { return 1; }
-    u32 TextureBoundBuffer() const override { return 0; }
-    u32 LocalMemorySize() const override { return 0; }
-    u32 SharedMemorySize() const override { return 0; }
-    std::array<u32, 3> WorkgroupSize() const override { return {1, 1, 1}; }
-    bool HasHLEMacroState() const override { return false; }
+    bool IsTexturePixelFormatInteger(u32) override {
+        return false;
+    }
+    u32 ReadViewportTransformState() override {
+        return 1;
+    }
+    u32 TextureBoundBuffer() const override {
+        return 0;
+    }
+    u32 LocalMemorySize() const override {
+        return 0;
+    }
+    u32 SharedMemorySize() const override {
+        return 0;
+    }
+    std::array<u32, 3> WorkgroupSize() const override {
+        return {1, 1, 1};
+    }
+    bool HasHLEMacroState() const override {
+        return false;
+    }
     std::optional<Shader::ReplaceConstant> GetReplaceConstBuffer(u32, u32) override {
         return std::nullopt;
     }
@@ -73,10 +95,17 @@ void Execute(State& state, std::span<const u64> code, s32 offset) {
         IR::Block block{pool};
         Shader::Maxwell::TranslatorVisitor visitor{env, block};
         switch (opcode) {
-        case Shader::Maxwell::Opcode::MOV_reg: visitor.MOV_reg(word); break;
-        case Shader::Maxwell::Opcode::ATOM_cas: visitor.ATOM_cas(word); break;
-        case Shader::Maxwell::Opcode::ISETP_reg: visitor.ISETP_reg(word); break;
-        default: FAIL("Unexpected lowered instruction");
+        case Shader::Maxwell::Opcode::MOV_reg:
+            visitor.MOV_reg(word);
+            break;
+        case Shader::Maxwell::Opcode::ATOM_cas:
+            visitor.ATOM_cas(word);
+            break;
+        case Shader::Maxwell::Opcode::ISETP_reg:
+            visitor.ISETP_reg(word);
+            break;
+        default:
+            FAIL("Unexpected lowered instruction");
         }
         std::map<const IR::Inst*, u64> values;
         const auto read = [&](IR::Value value) -> u64 {
@@ -93,13 +122,20 @@ void Execute(State& state, std::span<const u64> code, s32 offset) {
             u64 result{};
             switch (inst.GetOpcode()) {
             case IR::Opcode::GetRegister:
-                result = state.registers[static_cast<u32>(inst.Arg(0).Reg())]; break;
+                result = state.registers[static_cast<u32>(inst.Arg(0).Reg())];
+                break;
             case IR::Opcode::SetRegister:
-                state.registers[static_cast<u32>(inst.Arg(0).Reg())] = arg(1); break;
+                state.registers[static_cast<u32>(inst.Arg(0).Reg())] = arg(1);
+                break;
             case IR::Opcode::CompositeConstructU32x2:
-                result = arg(0) | (arg(1) << 32); break;
-            case IR::Opcode::PackUint2x32: result = arg(0); break;
-            case IR::Opcode::IAdd64: result = arg(0) + arg(1); break;
+                result = arg(0) | (arg(1) << 32);
+                break;
+            case IR::Opcode::PackUint2x32:
+                result = arg(0);
+                break;
+            case IR::Opcode::IAdd64:
+                result = arg(0) + arg(1);
+                break;
             case IR::Opcode::GlobalAtomicCompareExchange32:
                 REQUIRE(arg(0) == u64{0x1234567800001000} + offset);
                 result = state.memory;
@@ -107,12 +143,20 @@ void Execute(State& state, std::span<const u64> code, s32 offset) {
                     state.memory = arg(2);
                 ++state.exchanges;
                 break;
-            case IR::Opcode::IEqual: result = arg(0) == arg(1); break;
-            case IR::Opcode::LogicalAnd: result = arg(0) && arg(1); break;
-            case IR::Opcode::LogicalNot: result = !arg(0); break;
+            case IR::Opcode::IEqual:
+                result = arg(0) == arg(1);
+                break;
+            case IR::Opcode::LogicalAnd:
+                result = arg(0) && arg(1);
+                break;
+            case IR::Opcode::LogicalNot:
+                result = !arg(0);
+                break;
             case IR::Opcode::SetPred:
-                state.predicates[static_cast<u32>(inst.Arg(0).Pred())] = arg(1); break;
-            default: FAIL("Unexpected IR: " << IR::NameOf(inst.GetOpcode()));
+                state.predicates[static_cast<u32>(inst.Arg(0).Pred())] = arg(1);
+                break;
+            default:
+                FAIL("Unexpected IR: " << IR::NameOf(inst.GetOpcode()));
             }
             values.emplace(&inst, result);
         }
@@ -145,8 +189,8 @@ TEST_CASE("Ampere foliage CAS returns the old word and handles aliased outputs a
                         state.memory = old;
                         const auto original = state.registers;
                         Execute(state, lowered.instructions, offset);
-                        const bool enabled = guard == 7 || (guard == 0 ? initial_predicate
-                                                                                     : !initial_predicate);
+                        const bool enabled =
+                            guard == 7 || (guard == 0 ? initial_predicate : !initial_predicate);
                         CHECK(state.exchanges == u32{enabled});
                         CHECK(state.memory == (enabled && old == 0 ? 42 : old));
                         CHECK(state.predicates[0] == (enabled ? old == 0 : initial_predicate));
@@ -162,9 +206,9 @@ TEST_CASE("Ampere foliage CAS returns the old word and handles aliased outputs a
 
 TEST_CASE("Ampere foliage CAS rejects unsupported sizes and addressing modes",
           "[video_core][ampere][global_cas]") {
-    for (const auto fields : {std::array{73U, 3U, 2U}, std::array{73U, 3U, 3U},
-                              std::array{72U, 1U, 0U}, std::array{91U, 1U, 1U},
-                              std::array{24U, 8U, 1U}, std::array{40U, 24U, 0x80000U}}) {
+    for (const auto fields :
+         {std::array{73U, 3U, 2U}, std::array{73U, 3U, 3U}, std::array{72U, 1U, 0U},
+          std::array{91U, 1U, 1U}, std::array{24U, 8U, 1U}, std::array{40U, 24U, 0x80000U}}) {
         auto instruction = Cas;
         Set(instruction, fields[0], fields[1], fields[2]);
         CHECK_FALSE(LowerToMaxwell(std::array{instruction, Exit}));
