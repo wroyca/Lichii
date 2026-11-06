@@ -6,7 +6,7 @@ The target started at `724aede4ea51fae8224cdd02549cdbdf7ceecd25`, an ancestor of
 
 ## Scope and evidence
 
-Inventoried all 74 open PRs. Read diffs for 22 performance candidates (#174, #175, #176, #178, #192, #197, #206, #232, #235, #243, #250, #259, #264, #268, #278, #288, #296, #300, #311, #161, #147, #231), plus relevant review discussions and production call sites. Remaining entries below are triage decisions from scope, PR descriptions and base-code comparison, not claims of a full code review. No author-reported FPS measurements were reproduced here.
+Inventoried all 74 open PRs. Inspected diffs for 22 performance candidates (#174, #175, #176, #178, #192, #197, #206, #232, #235, #243, #250, #259, #264, #268, #278, #288, #296, #300, #311, #161, #147, #231), plus test-support PRs #167/#246, relevant review discussions and production call sites. Full production-code review concentrated on the selected changes. Remaining entries below are triage decisions from scope, PR descriptions and base-code comparison, not claims of a full code review. No author-reported FPS measurements were reproduced here.
 
 ## Selected changes
 
@@ -46,7 +46,7 @@ Inventoried all 74 open PRs. Read diffs for 22 performance candidates (#174, #17
 | [#255](https://github.com/zortos293/Lichii/pull/255) | Outside selected performance scope | Implement Switch 2 microphone capture and Controls configuration |
 | [#253](https://github.com/zortos293/Lichii/pull/253) | Deferred | DLSS replacement is a separate feature with SDK/runtime and image-quality validation requirements. |
 | [#251](https://github.com/zortos293/Lichii/pull/251) | Deferred | Video/audio timing behavior; needs dedicated playback validation. |
-| [#246](https://github.com/zortos293/Lichii/pull/246) | Already present / overlap | Check unsigned-comparison cleanup against the current tests rather than importing older test snapshots. |
+| [#246](https://github.com/zortos293/Lichii/pull/246) | Included test support | Match unsigned result types in assertions; no runtime behavior change. |
 | [#245](https://github.com/zortos293/Lichii/pull/245) | Outside selected performance scope | video_core: read bindless handle words from the host-aligned storage base |
 | [#243](https://github.com/zortos293/Lichii/pull/243) | Deferred | Substantial synchronization rewrite of macro DMA/report reads; needs dedicated dependency/readback integration testing before merge. |
 | [#241](https://github.com/zortos293/Lichii/pull/241) | Outside selected performance scope | shader: retry native lowering with an aligned high uniform base before rejecting |
@@ -81,7 +81,7 @@ Inventoried all 74 open PRs. Read diffs for 22 performance candidates (#174, #17
 | [#172](https://github.com/zortos293/Lichii/pull/172) | Outside selected performance scope | core: log the host clock calibration at boot |
 | [#170](https://github.com/zortos293/Lichii/pull/170) | Outside selected performance scope | audio: don't pad a sysmix block with silence while the host has audio queued |
 | [#168](https://github.com/zortos293/Lichii/pull/168) | Outside selected performance scope | audio: account retried and padded sysmix frames and log both clocks |
-| [#167](https://github.com/zortos293/Lichii/pull/167) | Outside selected performance scope | tests: compare only visible pixels in nx2 video scaler tests |
+| [#167](https://github.com/zortos293/Lichii/pull/167) | Included test support | Compare only defined visible NV12 pixels, while retaining full/limited-range difference checks. |
 | [#166](https://github.com/zortos293/Lichii/pull/166) | Deferred | Mixed overlapping fixes and experimental switches; do not merge the whole branch. |
 | [#164](https://github.com/zortos293/Lichii/pull/164) | Outside selected performance scope | build: compile with clang-cl on Windows (NOMINMAX and FARPROC casts) |
 | [#161](https://github.com/zortos293/Lichii/pull/161) | Deferred | Large mixed timing/JIT/synchronization patch overlaps promoted #184/#194 changes; original speedup claims were corrected by the author. |
@@ -96,7 +96,13 @@ Inventoried all 74 open PRs. Read diffs for 22 performance candidates (#174, #17
 
 ## Validation
 
-Pending: clean Clang 22/Ninja Release build of Qt frontend, CLI and tests with Vulkan and OpenGL enabled; full test suite; focused read-trap, page-filter, instance-loop and software-matrix checks; generated SPIR-V validation.
+Passed: Clang 22/Ninja Release build of Qt frontend (`yuzu` / `bin/lichii`), CLI (`yuzu-cmd` / `bin/eden-cli`), `tests`, and `update_checker_tests`, with Vulkan and OpenGL enabled and `ENABLE_WERROR=OFF`. Existing warnings remain.
+
+The main executable passed **773 test cases / 69,539,381 assertions** in 16.35 seconds, including read-trap, page-filter, instance-loop and software-matrix cases. CTest initially could not run the updater test because the explicit target list omitted its executable; after building that target, `ctest --test-dir build --rerun-failed --output-on-failure --no-tests=error` passed it. Both registered test executables passed.
+
+All six emitted software HMMA SPIR-V modules (K8/K16, repeated call sites and 64-lane subgroups) passed `spirv-val --target-env vulkan1.2`. `git diff --check` passed.
+
+Passed: ASTC decoder compiles with glslang for both Vulkan and OpenGL, and both generated modules pass spirv-val. The production host-visibility probe passes all eight coherent mapped readback cases on NVIDIA GeForce RTX 3070 Ti, with zero Vulkan validation errors. ThreadWorker Python tests: 8 passed. Optional Python/Vulkan probe dependencies were supplied with an isolated uv environment; SPIR-V tools were extracted under /tmp without installing system packages.
 
 Added integration regression tests for page-filter boundary/fallback behavior and split-front instance-loop transitions through multi-method batches and shadow replay.
 
